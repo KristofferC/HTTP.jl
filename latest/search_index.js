@@ -17,11 +17,83 @@ var documenterSearchIndex = {"docs": [
 },
 
 {
+    "location": "index.html#HTTP.get",
+    "page": "Home",
+    "title": "HTTP.get",
+    "category": "Function",
+    "text": "HTTP.get(uri; kwargs...) -> Response\nHTTP.get(client::HTTP.Client, uri; kwargs...) -> Response\n\nBuild and execute an http \"GET\" request. Query parameters can be passed via the query keyword argument as a Dict. Multiple query parameters with the same key can be passed like Dict(\"key1\"=>[\"value1\", \"value2\"], \"key2\"=>...). Returns a Response object that includes the resulting status code (HTTP.status(r) and HTTP.statustext(r)), response headers (HTTP.headers(r)), cookies (HTTP.cookies(r)), response history if redirects were involved (HTTP.history(r)), and response body (HTTP.body(r) or String(r) or take!(r)).\n\nThe body or payload for a request can be given through the body keyword arugment. The body can be given as a String, Vector{UInt8}, IO, HTTP.FIFOBuffer or Dict argument type. See examples below for how to use an HTTP.FIFOBuffer for asynchronous streaming uploads.\n\nIf the body is provided as a Dict, the request body will be uploaded using the multipart/form-data encoding. The key-value pairs in the Dict will constitute the name and value of each multipart boundary chunk. Files and other large data arguments can be provided as values as IO arguments: either an IOStream such as returned via open(file), an IOBuffer for in-memory data, or even an HTTP.FIFOBuffer. For complete control over the multipart details, an HTTP.Multipart type is provided to support setting the Content-Type, filename, and Content-Transfer-Encoding if desired. See ?HTTP.Multipart for more details.\n\nAdditional keyword arguments supported, include:\n\nheaders::Dict{String,String}: headers given as Dict to be sent with the request\nbody: a request body can be given as a String, Vector{UInt8}, IO, HTTP.FIFOBuffer or Dict; see example below for how to utilize HTTP.FIFOBuffer for \"streaming\" request bodies; a Dict argument will be converted to a multipart form upload\nstream::Bool=false: enable response body streaming; depending on the response body size, the request will return before the full body has been received; as the response body is read, additional bytes will be recieved and put in the response body. Readers should read until eof(response.body) == true; see below for an example of response streaming\nchunksize::Int: if a request body is larger than chunksize, the \"chunked-transfer\" http mechanism will be used and chunks will be sent no larger than chunksize\nconnecttimeout::Float64: sets a timeout on how long to wait when trying to connect to a remote host; default = 10.0 seconds\nreadtimeout::Float64: sets a timeout on how long to wait when receiving a response from a remote host; default = 9.0 seconds\ntlsconfig::TLS.SSLConfig: a valid TLS.SSLConfig which will be used to initialize every https connection\nmaxredirects::Int: the maximum number of redirects that will automatically be followed for an http request\nallowredirects::Bool: whether redirects should be allowed to be followed at all; default = true\nforwardheaders::Bool: whether user-provided headers should be forwarded on redirects; default = false\nretries::Int: # of times a request will be tried before throwing an error; default = 3\nmanagecookies::Bool: whether the request client should automatically store and add cookies from/to requests (following appropriate host-specific & expiration rules)\nstatusraise::Bool: whether an HTTP.StatusError should be raised on a non-2XX response status code\n\nSimple request example:\n\njulia> resp = HTTP.get(\"http://httpbin.org/ip\")\nHTTP.Response:\n\"\"\"\nHTTP/1.1 200 OK\nConnection: keep-alive\nX-Powered-By: Flask\nContent-Length: 32\nVia: 1.1 vegur\nAccess-Control-Allow-Credentials: true\nX-Processed-Time: 0.000903129577637\nDate: Wed, 23 Aug 2017 23:35:59 GMT\nContent-Type: application/json\nAccess-Control-Allow-Origin: *\nServer: meinheld/0.6.1\nContent-Length: 32\n\n{ \n  \"origin\": \"50.207.241.62\"\n}\n\"\"\"\n\n\njulia> String(resp)\n\"{\n  \"origin\": \"65.130.216.45\"\n}\n\"\n\nResponse streaming example (asynchronous download):\n\njulia> r = HTTP.get(\"http://httpbin.org/stream/100\"; stream=true)\nHTTP.Response:\n\"\"\"\nHTTP/1.1 200 OK\nConnection: keep-alive\nX-Powered-By: Flask\nTransfer-Encoding: chunked\nVia: 1.1 vegur\nAccess-Control-Allow-Credentials: true\nX-Processed-Time: 0.000981092453003\nDate: Wed, 23 Aug 2017 23:36:56 GMT\nContent-Type: application/json\nAccess-Control-Allow-Origin: *\nServer: meinheld/0.6.1\n\n[HTTP.Response body of 27415 bytes]\nContent-Length: 27390\n\n{\"id\": 0, \"origin\": \"50.207.241.62\", \"args\": {}, \"url\": \"http://httpbin.org/stream/100\", \"headers\": {\"Connection\": \"close\", \"User-Agent\": \"HTTP.jl/0.0.0\", \"Host\": \"httpbin.org\", \"Accept\": \"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8,application/json\"}}\n{\"id\": 1, \"origin\": \"50.207.241.62\", \"args\": {}, \"url\": \"http://httpbin.org/stream/100\", \"headers\": {\"Connection\": \"close\", \"User-Agent\": \"HTTP.jl/0.0.0\", \"Host\": \"httpbin.org\", \"Accept\": \"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8,application/json\"}}\n{\"id\": 2, \"origin\": \"50.207.241.62\", \"args\": {}, \"url\": \"http://httpbin.org/stream/100\", \"headers\": {\"Connection\": \"close\", \"User-Agent\": \"HTTP.jl/0.0.0\", \"Host\": \"httpbin.org\", \"\n⋮\n\n\"\"\"\n\njulia> body = HTTP.body(r) HTTP.FIFOBuffers.FIFOBuffer(27390, 1048576, 27390, 1, 27391, -1, 27390, UInt8[0x7b, 0x22, 0x69, 0x64, 0x22, 0x3a, 0x20, 0x30, 0x2c, 0x20  …  0x6e, 0x2f, 0x6a, 0x73, 0x6f, 0x6e, 0x22, 0x7d, 0x7d, 0x0a], Condition(Any[]), Task (done) @0x0000000112d84250, true)\n\njulia> while true            println(String(readavailable(body)))            eof(body) && break        end {\"id\": 0, \"origin\": \"50.207.241.62\", \"args\": {}, \"url\": \"http://httpbin.org/stream/100\", \"headers\": {\"Connection\": \"close\", \"User-Agent\": \"HTTP.jl/0.0.0\", \"Host\": \"httpbin.org\", \"Accept\": \"text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8,application/json\"}} {\"id\": 1, \"origin\": \"50.207.241.62\", \"args\": {}, \"url\": \"http://httpbin.org/stream/100\", \"headers\": {\"Connection\": \"close\", \"User-Agent\": \"HTTP.jl/0.0.0\", \"Host\": \"httpbin.org\", \"Accept\": \"text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8,application/json\"}} {\"id\": 2, \"origin\": \"50.207.241.62\", \"args\": {}, \"url\": \"http://httpbin.org/stream/100\", \"headers\": {\"Connection\": \"close\", \"User-Agent\": \"HTTP.jl/0.0.0\", \"Host\": \"httpbin.org\", \"Accept\": \"text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8,application/json\"}} {\"id\": 3, \"origin\": \"50.207.241.62\", \"args\": {}, \"url\": \"http://httpbin.org/stream/100\", \"headers\": {\"Connection\": \"close\", \"User-Agent\": \"HTTP.jl/0.0.0\", \"Host\": \"httpbin.org\", \"Accept\": \"text/html,application/xhtml+xml,application/xml;q=0.9,/;q=0.8,application/json\"}} ...\n\n\nRequest streaming example (asynchronous upload):\n\njulia\n\ncreate a FIFOBuffer for sending our request body\n\nf = HTTP.FIFOBuffer()\n\nwrite initial data\n\nwrite(f, \"hey\")\n\nstart an HTTP.post asynchronously\n\nt = @async HTTP.post(\"http://httpbin.org/post\"; body=f) write(f, \" there \") # as we write to f, it triggers another chunk to be sent in our async request write(f, \"sailor\") close(f) # setting eof on f causes the async request to send a final chunk and return the response\n\nresp = wait(t) # get our response by getting the result of our asynchronous task ```\n\n\n\n"
+},
+
+{
+    "location": "index.html#HTTP.Client",
+    "page": "Home",
+    "title": "HTTP.Client",
+    "category": "Type",
+    "text": "HTTP.Client([logger::IO]; args...)\n\nA type to facilitate connections to remote hosts, send HTTP requests, and manage state between requests. Takes an optional logger IO argument where client activity is recorded (defaults to STDOUT). Additional keyword arguments can be passed that will get transmitted with each HTTP request:\n\nchunksize::Int: if a request body is larger than chunksize, the \"chunked-transfer\" http mechanism will be used and chunks will be sent no larger than chunksize\nconnecttimeout::Float64: sets a timeout on how long to wait when trying to connect to a remote host; default = 10.0 seconds\nreadtimeout::Float64: sets a timeout on how long to wait when receiving a response from a remote host; default = 9.0 seconds\ntlsconfig::TLS.SSLConfig: a valid TLS.SSLConfig which will be used to initialize every https connection\nmaxredirects::Int: the maximum number of redirects that will automatically be followed for an http request\nallowredirects::Bool: whether redirects should be allowed to be followed at all; default = true\nforwardheaders::Bool: whether user-provided headers should be forwarded on redirects; default = false\nretries::Int: # of times a request will be tried before throwing an error; default = 3\nmanagecookies::Bool: whether the request client should automatically store and add cookies from/to requests (following appropriate host-specific & expiration rules)\nstatusraise::Bool: whether an HTTP.StatusError should be raised on a non-2XX response status code\n\n\n\n"
+},
+
+{
+    "location": "index.html#HTTP.Connection",
+    "page": "Home",
+    "title": "HTTP.Connection",
+    "category": "Type",
+    "text": "HTTP.Connection\n\nRepresents a persistent client connection to a remote host; only created when a server response includes the \"Connection: keep-alive\" header. An open and non-idle connection will be reused when sending subsequent requests to the same host.\n\n\n\n"
+},
+
+{
     "location": "index.html#Requests-1",
     "page": "Home",
     "title": "Requests",
     "category": "section",
-    "text": "Note that the HTTP methods of POST, DELETE, PUT, etc. all follow the same format as HTTP.get, documented below.HTTP.get\nHTTP.request\nHTTP.Client\nHTTP.Connection"
+    "text": "Note that the HTTP methods of POST, DELETE, PUT, etc. all follow the same format as HTTP.get, documented below.HTTP.get\nHTTP.Client\nHTTP.Connection"
+},
+
+{
+    "location": "index.html#HTTP.Nitrogen.serve",
+    "page": "Home",
+    "title": "HTTP.Nitrogen.serve",
+    "category": "Function",
+    "text": "HTTP.serve([server,] host::IPAddr, port::Int; verbose::Bool=true, kwargs...)\n\nStart a server listening on the provided host and port. verbose indicates whether server activity should be logged. Optional keyword arguments allow construction of Server on the fly if the server argument isn't provided directly. See ?HTTP.Server for more details on server construction and supported keyword arguments. By default, HTTP.serve aims to \"never die\", catching and recovering from all internal errors. Two methods for stopping HTTP.serve include interrupting (ctrl/cmd+c) if blocking on the main task, or sending the kill signal via the server's in channel (put!(server.in, HTTP.KILL)).\n\n\n\n"
+},
+
+{
+    "location": "index.html#HTTP.Nitrogen.Server",
+    "page": "Home",
+    "title": "HTTP.Nitrogen.Server",
+    "category": "Type",
+    "text": "Server(handler, logger::IO=STDOUT; kwargs...)\n\nAn http/https server. Supports listening on a host and port via the HTTP.serve(server, host, port) function. handler is a function of the form f(::Request, ::Response) -> HTTP.Response, i.e. it takes both a Request and pre-built Response objects as inputs and returns the, potentially modified, Response. logger indicates where logging output should be directed. When HTTP.serve is called, it aims to \"never die\", catching and recovering from all internal errors. To forcefully stop, one can obviously kill the julia process, interrupt (ctrl/cmd+c) if main task, or send the kill signal over a server in channel like: put!(server.in, HTTP.KILL).\n\nSupported keyword arguments include:\n\ncert: if https, the cert file to use, as passed to HTTP.TLS.SSLConfig(cert, key)\nkey: if https, the key file to use, as passed to HTTP.TLS.SSLConfig(cert, key)\ntlsconfig: pass in an already-constructed HTTP.TLS.SSLConfig instance\nreadtimeout: how long a client connection will be left open without receiving any bytes\nratelimit: a Rational{Int} of the form 5//1 indicating how many messages//second should be allowed per client IP address; requests exceeding the rate limit will be dropped\nmaxuri: the maximum size in bytes that a request uri can be; default 8000\nmaxheader: the maximum size in bytes that request headers can be; default 8kb\nmaxbody: the maximum size in bytes that a request body can be; default 4gb\nsupport100continue: a Bool indicating whether Expect: 100-continue headers should be supported for delayed request body sending; default = true\n\n\n\n"
+},
+
+{
+    "location": "index.html#HTTP.Handlers.Handler",
+    "page": "Home",
+    "title": "HTTP.Handlers.Handler",
+    "category": "Type",
+    "text": "Abstract type representing an object that knows how to \"handle\" a server request.\n\nTypes of handlers include HandlerFunction (a julia function of the form f(request, response) and Router (which pattern matches request url paths to other specific Handler types).\n\n\n\n"
+},
+
+{
+    "location": "index.html#HTTP.Handlers.HandlerFunction",
+    "page": "Home",
+    "title": "HTTP.Handlers.HandlerFunction",
+    "category": "Type",
+    "text": "HandlerFunction(f::Function)\n\nA Function-wrapper type that is a subtype of Handler. Takes a single Function as an argument. The provided argument should be of the form f(request, response) => Response, i.e. it accepts both a Request and Response and returns a Response. \n\n\n\n"
+},
+
+{
+    "location": "index.html#HTTP.Handlers.Router",
+    "page": "Home",
+    "title": "HTTP.Handlers.Router",
+    "category": "Type",
+    "text": "Router(h::Handler) Router(f::Function) Router()\n\nAn HTTP.Handler type that supports mapping request url paths to other HTTP.Handler types. Can accept a default Handler or Function that will be used in case no other handlers match; by default, a 404 response handler is used. Paths can be mapped to a handler via HTTP.register!(r::Router, path, handler), see ?HTTP.register! for more details.\n\n\n\n"
+},
+
+{
+    "location": "index.html#HTTP.Handlers.register!",
+    "page": "Home",
+    "title": "HTTP.Handlers.register!",
+    "category": "Function",
+    "text": "HTTP.register!(r::Router, url, handler) HTTP.register!(r::Router, m::Union{Method, String}, url, handler)\n\nFunction to map request urls matching url and an optional method m to another handler::HTTP.Handler. URLs are registered one at a time, and multiple urls can map to the same handler. Methods can be passed as a string \"GET\" or enum object directly HTTP.GET. The URL can be passed as a String or HTTP.URI object directly. Requests can be routed based on: method, scheme, hostname, or path. The following examples show how various urls will direct how a request is routed by a server:\n\n\"http://*\": match all HTTP requests, regardless of path\n\"https://*\": match all HTTPS requests, regardless of path\n\"google\": regardless of scheme, match requests to the hostname \"google\"\n\"google/gmail\": match requests to hostname \"google\", and path starting with \"gmail\"\n\"/gmail\": regardless of scheme or host, match any request with a path starting with \"gmail\"\n\"/gmail/userId/*/inbox: match any request matching the path pattern, \"*\" is used as a wildcard that matches any value between the two \"/\"\n\n\n\n"
 },
 
 {
@@ -29,7 +101,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Server / Handlers",
     "category": "section",
-    "text": "HTTP.serve\nHTTP.Server\nHTTP.Handler\nHTTP.HandlerFunction\nHTTP.Router\nHTTP.register!\nHTTP.FourOhFour"
+    "text": "HTTP.serve\nHTTP.Server\nHTTP.Handler\nHTTP.HandlerFunction\nHTTP.Router\nHTTP.register!"
 },
 
 {
