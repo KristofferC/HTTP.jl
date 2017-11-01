@@ -173,7 +173,9 @@ escape(str::AbstractString, safe::Function=issafe) =
 
 escape(bytes::Vector{UInt8}) = bytes
 escape(v::Number) = escape(string(v))
+escape(v::Symbol) = escape(string(v))
 escape(v::Nullable) = Base.isnull(v) ? "" : escape(get(v))
+
 
 escape(key, value) = string(escape(key), "=", escape(value))
 escape(key, values::Vector) = escape(key => v for v in values)
